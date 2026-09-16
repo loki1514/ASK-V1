@@ -1,0 +1,14 @@
+{
+  "modelVersion": "wespeaker-voxceleb-ecapa-tdnn512/89426e111abc9ffcc40279baf808e087693c6e9b",
+  "preprocessingVersion": "wespeaker-kaldi-fbank80-cmn/1.0.0",
+  "file": "voxceleb_ECAPA512.onnx",
+  "inputName": "feats",
+  "outputName": "embs",
+  "expectedSampleRate": 16000,
+  "expectedDimensions": 192,
+  "inputLayout": "fbank_batch_time_features",
+  "featureBins": 80,
+  "opset": 14,
+  "sha256": "f901ae3571912bad4e11e157744cb8b7d77a0b46923b83c410bdbb6c77d69736",
+  "license": "Apache-2.0; pretrained VoxCeleb weights require CC BY 4.0 attribution"
+}

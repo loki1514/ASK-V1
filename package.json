@@ -1,0 +1,47 @@
+{
+  "name": "ask-app-base",
+  "version": "0.2.0",
+  "private": true,
+  "main": "expo-router/entry",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
+    "web": "expo start --web",
+    "check": "node --stack_size=8192 node_modules/typescript/bin/tsc --noEmit",
+    "test": "vitest run",
+    "test:calibration": "python3 -m unittest discover -s scripts -p 'test_*.py'"
+  },
+  "dependencies": {
+    "@expo-google-fonts/inter": "^0.4.2",
+    "@expo-google-fonts/space-grotesk": "^0.4.1",
+    "@expo/metro-runtime": "~57.0.15",
+    "@expo/vector-icons": "^15.0.0",
+    "expo": "~57.0.0",
+    "expo-asset": "~57.0.17",
+    "expo-audio": "~57.0.5",
+    "expo-constants": "~57.0.18",
+    "expo-dev-client": "~57.0.19",
+    "expo-file-system": "~57.0.7",
+    "expo-haptics": "~57.0.3",
+    "expo-linking": "~57.0.10",
+    "expo-router": "~57.0.21",
+    "expo-secure-store": "~57.0.4",
+    "expo-sharing": "~57.0.20",
+    "expo-status-bar": "~57.0.1",
+    "lucide-react-native": "^1.46.0",
+    "onnxruntime-react-native": "^1.24.3",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "react-native": "0.86.3",
+    "react-native-paper": "^5.14.5",
+    "react-native-safe-area-context": "~5.7.0",
+    "react-native-web": "^0.21.2"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.2.0",
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
+  }
+}

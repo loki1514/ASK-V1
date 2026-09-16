@@ -1,0 +1,45 @@
+{
+  "expo": {
+    "name": "ASK",
+    "slug": "ask-app-base",
+    "version": "0.2.0",
+    "scheme": "ask",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "description": "ASK is your private, on-device memory layer. Conversations become searchable decisions, actions, and commitments, all kept on your device.",
+    "web": {
+      "name": "ASK: What matters now",
+      "shortName": "ASK"
+    },
+    "ios": {
+      "bundleIdentifier": "com.proviyaa.ask"
+    },
+    "android": {
+      "package": "com.proviyaa.ask"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Allow ASK to capture voice samples for your local voice profile.",
+          "enableBackgroundRecording": false
+        }
+      ],
+      [
+        "expo-secure-store",
+        {
+          "configureAndroidBackup": true,
+          "faceIDPermission": "Allow ASK to unlock your protected local voice profile."
+        }
+      ],
+      "onnxruntime-react-native",
+      "expo-status-bar",
+      "expo-asset",
+      "expo-sharing"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
