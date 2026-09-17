@@ -300,7 +300,7 @@ export function VoiceIdentityPanel() {
     <Animated.View style={{ opacity: entry, transform: [{ translateY: entry.interpolate({ inputRange: [0, 1], outputRange: [8, 0] }) }] }}>
       <View style={[s.instrument, { backgroundColor: t.surfaceInverse }]}>
         <View style={s.instrumentTop}>
-          <View>
+          <View style={{ flex: 1, flexShrink: 1 }}>
             <Text style={[s.eyebrow, { color: "#AAA5B4" }]}>VOICE IDENTITY</Text>
             <Text style={[s.instrumentTitle, { color: "#F7F5FB" }]}>Your voice, held privately.</Text>
           </View>
@@ -603,8 +603,8 @@ const s = StyleSheet.create({
   instrument: { borderRadius: 28, padding: spacing.lg, overflow: "hidden", marginBottom: spacing.sm },
   instrumentTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: spacing.sm },
   eyebrow: { fontSize: 11, letterSpacing: 1.4, fontWeight: "800" },
-  instrumentTitle: { fontSize: 22, fontWeight: "800", marginTop: 4, maxWidth: 220, letterSpacing: -0.4 },
-  darkChip: { backgroundColor: "#2B2734" },
+  instrumentTitle: { fontSize: 20, fontWeight: "800", marginTop: 4, letterSpacing: -0.4 },
+  darkChip: { backgroundColor: "#2B2734", flexShrink: 0 },
   darkChipText: { color: "#D8D2E1", fontSize: 10, fontWeight: "800" },
   instrumentFoot: { fontSize: 12, textAlign: "center", lineHeight: 18, paddingHorizontal: spacing.sm },
   runtimeRow: { flexDirection: "row", alignItems: "center", gap: spacing.xs, paddingHorizontal: spacing.sm, paddingVertical: 10, marginBottom: spacing.sm },

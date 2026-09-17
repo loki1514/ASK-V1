@@ -46,8 +46,27 @@ export type TranscriptSegment = {
   startMs: number;
   endMs: number;
   text: string;
+  speakerName?: string;
+  confidence?: number;
   anonymousSpeakerId?: string;
   resolvedSpeakerId?: string;
+};
+
+export type Speaker = {
+  id: string;
+  label: string;
+  sourceLabel?: string;
+  resolvedName?: string;
+  identityStatus: "resolved" | "unresolved";
+};
+
+export type ParsedConversation = {
+  id: string;
+  title: string;
+  source: "clean" | "dirty" | "pasted" | "file";
+  segments: TranscriptSegment[];
+  speakers: Speaker[];
+  events: SemanticEventDraft[];
 };
 
 export type DraftFields = {
@@ -149,4 +168,3 @@ export type MemoryAnswer = {
   hits: MemorySearchHit[];
   conflicts: string[];
 };
-

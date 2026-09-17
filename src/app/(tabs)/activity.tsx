@@ -6,6 +6,7 @@ import { SectionHeader } from "@/components/SectionHeader";
 import { AppIcon, IconName } from "@/components/AppIcon";
 import { fonts, radii, spacing } from "@/theme/tokens";
 import { useThemeTokens } from "@/lib/useThemeTokens";
+import { formatFunctionName } from "@/lib/formatters";
 
 const iconByType: Record<string, IconName> = {
   decision: "checkCircle",
@@ -38,7 +39,9 @@ export default function Activity() {
               </View>
               <View style={styles.rowCopy}>
                 <Text style={[styles.rowTitle, { color: t.textPrimary, fontFamily: fonts.medium }]}>{event.title}</Text>
-                <Text style={[styles.rowMeta, { color: t.textMuted, fontFamily: fonts.regular }]}>{event.functionName} · {event.evidence.length} source{event.evidence.length === 1 ? "" : "s"}</Text>
+                <Text style={[styles.rowMeta, { color: t.textMuted, fontFamily: fonts.regular }]}>
+                  {formatFunctionName(event.functionName)} · {event.evidence.length} {event.evidence.length === 1 ? "source" : "sources"}
+                </Text>
               </View>
               <AppIcon name="arrowRight" size={16} color={t.textMuted} />
             </View>
@@ -56,7 +59,7 @@ export default function Activity() {
 }
 
 const styles = StyleSheet.create({
-  content: { padding: spacing.lg, paddingTop: 58, paddingBottom: 40, width: "100%", alignSelf: "center" },
+  content: { padding: spacing.lg, paddingTop: 58, paddingBottom: 100, width: "100%", alignSelf: "center", minHeight: "100%" },
   card: { borderRadius: radii.lg, borderWidth: StyleSheet.hairlineWidth, paddingHorizontal: spacing.md },
   row: { flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingVertical: spacing.md },
   rowIcon: { width: 38, height: 38, borderRadius: radii.md, alignItems: "center", justifyContent: "center" },

@@ -18,7 +18,7 @@ export function SectionHeader({ kicker, title, description, accent }: { kicker: 
 }
 
 const styles = StyleSheet.create({
-  wrap: { marginBottom: spacing.lg },
+  wrap: { marginBottom: spacing.lg, flex: 1, flexShrink: 1 },
   kicker: {
     fontSize: 11,
     letterSpacing: letterSpacing.kicker,

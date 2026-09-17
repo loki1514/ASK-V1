@@ -1,5 +1,4 @@
 import React from "react";
-import { StyleSheet } from "react-native";
 import { Tabs, usePathname } from "expo-router";
 import { TabBar } from "@/components/TabBar";
 

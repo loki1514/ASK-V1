@@ -1,41 +1,44 @@
-import { demoCanonicalEvents, demoDrafts, demoEventRepository, demoTranscriptSegments, conversationId } from "@/data/demoDomain";
-import { InMemoryCanonicalEventRepository } from "@/infrastructure/memory/InMemoryCanonicalEventRepository";
-import { projectEventToMemory } from "@/data/memories";
+import { DemoSemanticParser } from "@/application/parsing/DemoSemanticParser";
+import { DeterministicTranscriptParser } from "@/application/parsing/DeterministicTranscriptParser";
+import { compileCanonicalEvent } from "@/domain/events/compiler";
+import { evaluateDraft } from "@/domain/guards/guardEngine";
 import { MemoryView, TranscriptSegment } from "@/domain/model";
+import { InMemoryCanonicalEventRepository } from "@/infrastructure/memory/InMemoryCanonicalEventRepository";
 import { LexicalRetrievalEngine } from "@/lib/retrieval";
+import { projectEventToMemory } from "@/data/memories";
+import { cleanTranscript } from "@/data/transcripts/cleanTranscript";
 
-// A shared, user-driven index in front of the canonical-events repository.
-// All screens (Home, Ask, Activity) render from this single live store, so
-// committing a memory makes it appear everywhere immediately.
+const transcriptParser = new DeterministicTranscriptParser();
+const semanticParser = new DemoSemanticParser();
+const seededConversation = transcriptParser.parseSync(cleanTranscript, "clean");
+const seededDrafts = semanticParser.extractSync(seededConversation.segments);
+
 export const liveEventRepository = new InMemoryCanonicalEventRepository();
-export const liveTranscriptSegments: TranscriptSegment[] = [...demoTranscriptSegments];
-export const liveConversationId = conversationId;
+export const liveTranscriptSegments: TranscriptSegment[] = seededConversation.segments;
+export const liveConversationId = seededConversation.id;
 
-// Seed the live store with the PRD fixture canonical events (the demo conversation).
-for (const event of demoCanonicalEvents) {
-  const draft = demoDrafts.find((d) => d.idempotencyKey === event.idempotencyKey);
-  if (draft) {
-    // Re-commit through the same idempotency path to guarantee the reside in one store.
-    liveEventRepository.findByIdempotencyKey(draft.idempotencyKey) ?? liveEventRepository.commit({
-      draft,
-      guardDecision: { id: event.guardDecisionId, draftId: draft.id, outcome: "allow_commit", ruleResults: [], normalizedFields: draft.fields, requiredConfirmation: "none", policyVersion: "guard-policy/1.0.0", createdAt: event.createdAt },
-      event: { ...event, id: event.id },
-    });
+const transcriptMap = new Map(seededConversation.segments.map((segment) => [segment.id, segment]));
+const fixedNow = () => new Date("2026-09-18T09:42:00.000Z");
+
+for (const draft of seededDrafts) {
+  const decision = evaluateDraft(draft, {
+    transcriptSegments: transcriptMap,
+    existingIdempotencyKeys: liveEventRepository.idempotencyKeys(),
+    now: fixedNow,
+  });
+  if (decision.outcome === "allow_commit") {
+    compileCanonicalEvent(draft, decision, { repository: liveEventRepository, now: fixedNow });
   }
 }
 
-import { memoryRepository } from "@/data/memories";
 export const liveMemoryRepository = {
   list(): MemoryView[] {
-    // Live store first, then fall back to the demo projection for content still seeded.
-    const fromStore = liveEventRepository.list().map(projectEventToMemory);
-    const ids = new Set(fromStore.map((m) => m.id));
-    const fromDemo = memoryRepository.list().filter((m) => !ids.has(m.id));
-    return [...fromDemo, ...fromStore];
+    return liveEventRepository.list().map(projectEventToMemory);
   },
 };
 
 export const liveRetrievalEngine = new LexicalRetrievalEngine(liveMemoryRepository);
+
 export function answerFromLiveMemory(query: string) {
   return liveRetrievalEngine.answer(query);
 }
