@@ -3,6 +3,7 @@ import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-nati
 import { useRouter } from "expo-router";
 import { liveEventRepository } from "@/data/liveMemory";
 import { FollowUp, followUpRepository } from "@/domain/people";
+import { persistFollowUpsNow } from "@/data/liveMemory";
 import { ScreenSection, Row } from "@/components/primitives";
 import { tokens } from "@/theme/tokens";
 
@@ -31,6 +32,7 @@ export default function AssignFollowUp() {
       source: { conversation: selected.project ?? "Bangalore Project", timeLabel: "12:41" },
     };
     followUpRepository.add(followUp);
+    persistFollowUpsNow();
     setSaved(true);
   };
 

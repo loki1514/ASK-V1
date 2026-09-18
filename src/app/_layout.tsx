@@ -2,6 +2,7 @@ import React from "react";
 import { Stack } from "expo-router";
 import { MD3DarkTheme, PaperProvider } from "react-native-paper";
 import { colors } from "@/theme/tokens";
+import { initializeLiveStore } from "@/data/liveMemory";
 
 const theme = {
   ...MD3DarkTheme,
@@ -22,6 +23,15 @@ const theme = {
 };
 
 export default function RootLayout() {
+  const [ready, setReady] = React.useState(false);
+  React.useEffect(() => {
+    let mounted = true;
+    initializeLiveStore().then(() => mounted && setReady(true));
+    return () => { mounted = false; };
+  }, []);
+
+  if (!ready) return null; // brief hydration gate; avoids flash of empty store
+
   return (
     <PaperProvider theme={theme}>
       <Stack screenOptions={{ headerShown: false }} />
