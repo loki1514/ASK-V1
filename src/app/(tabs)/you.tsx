@@ -24,6 +24,11 @@ export default function You() {
       <Row label="Local processing" second="Required for voice templates" value="On" />
 
       {/* Memory */}
+      <ScreenSection>Memory</ScreenSection>
+      <Row label="People" second="Relationship memory, not a CRM" value="3 recognized" onPress={() => router.push("/people")} />
+      <Row label="Memory graph" second="How the things you know are connected" onPress={() => router.push("/memory-graph")} />
+
+      {/* Storage */}
       <ScreenSection>Storage</ScreenSection>
       <View style={styles.storageBlock}>
         <Text style={styles.storageValue}>12.4 GB</Text>
