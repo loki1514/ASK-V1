@@ -1,163 +1,122 @@
 import React from "react";
-import { Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from "react-native";
-import { Text } from "react-native-paper";
-import { router } from "expo-router";
-import { AppIcon, IconName } from "@/components/AppIcon";
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { useRouter, useLocalSearchParams } from "expo-router";
+import { liveEventRepository, liveTranscriptSegments } from "@/data/liveMemory";
 import { conversationStore } from "@/data/conversationStore";
-import { cleanTranscript } from "@/data/transcripts/cleanTranscript";
-import { liveEventRepository } from "@/data/liveMemory";
-import { DemoSemanticParser } from "@/application/parsing/DemoSemanticParser";
-import { DeterministicTranscriptParser } from "@/application/parsing/DeterministicTranscriptParser";
-import { renderSummary } from "@/application/renderSummary";
-import { CanonicalEvent, EventType } from "@/domain/model";
-import { fonts, letterSpacing, radii, spacing } from "@/theme/tokens";
-import { useThemeTokens } from "@/lib/useThemeTokens";
+import { fmtTime } from "@/application/memoryDerived";
+import { ScreenSection } from "@/components/primitives";
+import { tokens } from "@/theme/tokens";
 
-type DetailTab = "transcript" | "understanding" | "events";
-
-const typeIcons: Partial<Record<EventType, IconName>> = {
-  action: "listChecks",
-  decision: "checkCircle",
-  commitment: "heartHandshake",
-  question: "messageSquare",
-  requirement: "fileText",
-  issue: "circleAlert",
-  risk: "shieldCheck",
+const typeColor: Record<string, string> = {
+  decision: tokens.colors.accent,
+  action: tokens.colors.success,
+  commitment: tokens.colors.warning,
+  question: tokens.colors.textSecondary,
+  issue: tokens.colors.error,
 };
 
 export default function ConversationDetail() {
-  const t = useThemeTokens();
-  const { width } = useWindowDimensions();
-  const [tab, setTab] = React.useState<DetailTab>("understanding");
-  const stored = conversationStore.get();
-  const fallbackConversation = React.useMemo(() => {
-    const conversation = new DeterministicTranscriptParser().parseSync(cleanTranscript, "clean");
-    conversation.events = new DemoSemanticParser().extractSync(conversation.segments);
-    return conversation;
-  }, []);
-  const conversation = stored?.conversation ?? fallbackConversation;
-  const events = stored?.events ?? liveEventRepository.list();
-  const summary = stored?.summary ?? renderSummary(events, conversation.title);
+  const router = useRouter();
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const [tab, setTab] = React.useState<"understanding" | "transcript">("understanding");
+  const understood = conversationStore.get();
+  const events = liveEventRepository.list().filter((e) => e.conversationId === id);
+  const segments = understood?.conversation.segments ?? liveTranscriptSegments;
+  const title = understood?.summary.title ?? "Bangalore Project";
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: t.surfaceRaised }} contentContainerStyle={[styles.content, { maxWidth: Math.min(width - 2 * spacing.lg, 900) }]}>
-      <Pressable onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Back" style={[styles.back, { backgroundColor: t.surface, borderColor: t.borderSubtle }]}>
-        <AppIcon name="arrowRight" size="inline" color={t.textMuted} style={{ transform: [{ rotate: "180deg" }] }} />
-        <Text style={[styles.backText, { color: t.textMuted, fontFamily: fonts.medium }]}>Back</Text>
-      </Pressable>
-
-      <Text style={[styles.kicker, { color: t.accent, fontFamily: fonts.bold }]}>CONVERSATION</Text>
-      <Text style={[styles.title, { color: t.textPrimary, fontFamily: fonts.display }]}>{conversation.title}</Text>
-      <Text style={[styles.date, { color: t.textMuted, fontFamily: fonts.regular }]}>18 Sep 2026</Text>
-      <View style={styles.metaRow}>
-        <Meta value={conversation.speakers.length} label="Speakers" />
-        <Meta value={events.length} label="Events" />
-        <Meta value={conversation.segments.length} label="Segments" />
+    <ScrollView style={styles.page} contentContainerStyle={styles.content}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Back" style={styles.back}>
+          <Text style={styles.backText}>‹</Text>
+        </TouchableOpacity>
+        <Text style={styles.wordmark}>ask<Text style={styles.mark}>) )</Text></Text>
       </View>
+      <Text style={styles.title}>{title}</Text>
+      <Text style={styles.subtitle}>
+        {segments.length} minutes · {understood?.conversation.speakers.length ?? 0} people
+      </Text>
 
-      <View style={[styles.tabs, { backgroundColor: t.surface, borderColor: t.borderSubtle }]}>
-        {(["transcript", "understanding", "events"] as DetailTab[]).map((item) => (
-          <Pressable key={item} onPress={() => setTab(item)} accessibilityRole="tab" accessibilityState={{ selected: tab === item }} style={[styles.tab, tab === item && { backgroundColor: t.accentSoft }]}>
-            <Text style={[styles.tabLabel, { color: tab === item ? t.accent : t.textMuted, fontFamily: fonts.semibold }]}>{item.toUpperCase()}</Text>
-          </Pressable>
+      {/* Tabs */}
+      <View style={styles.tabs}>
+        {(["understanding", "transcript"] as const).map((t) => (
+          <TouchableOpacity key={t} onPress={() => setTab(t)} accessibilityRole="button" accessibilityLabel={t} style={[styles.tab, tab === t && styles.tabActive]}>
+            <Text style={[styles.tabText, tab === t && { color: tokens.colors.accent }]}>{t === "understanding" ? "Understanding" : "Transcript"}</Text>
+          </TouchableOpacity>
         ))}
       </View>
 
-      {tab === "transcript" ? (
-        <View style={styles.list}>
-          {conversation.segments.map((segment) => (
-            <View key={segment.id} style={[styles.transcriptCard, { backgroundColor: t.surface, borderColor: t.borderSubtle }]}>
-              <View style={styles.transcriptTop}>
-                <View style={[styles.speakerDot, { backgroundColor: speakerColor(segment.anonymousSpeakerId) }]} />
-                <Text style={[styles.segmentSpeaker, { color: t.textPrimary, fontFamily: fonts.semibold }]}>{humanSpeaker(segment.anonymousSpeakerId)}</Text>
-                <Text style={[styles.segmentTime, { color: t.textMuted, fontFamily: fonts.regular }]}>{formatTime(segment.startMs)}</Text>
-              </View>
-              <Text style={[styles.segmentText, { color: t.textPrimary, fontFamily: fonts.regular }]}>{segment.text}</Text>
+      {tab === "understanding" ? (
+        <>
+          <ScreenSection>What mattered</ScreenSection>
+          {Object.entries(
+            events.reduce<Record<string, number>>((acc, e) => {
+              acc[e.type] = (acc[e.type] ?? 0) + 1;
+              return acc;
+            }, {}),
+          ).map(([type, count]) => (
+            <View key={type} style={styles.countRow}>
+              <Text style={[styles.countValue, { color: typeColor[type] ?? tokens.colors.textPrimary }]}>{count}</Text>
+              <Text style={styles.countLabel}>{type}s</Text>
             </View>
           ))}
-        </View>
-      ) : null}
 
-      {tab === "understanding" ? (
-        <View style={styles.list}>
-          {summary.sections.map((section) => section.events.map((event) => <EventCard key={event.id} event={event} compact />))}
-        </View>
-      ) : null}
+          <ScreenSection>Events</ScreenSection>
+          {events.map((event) => (
+            <View key={event.id} style={styles.eventRow}>
+              <Text style={[styles.eventType, { color: typeColor[event.type] ?? tokens.colors.textPrimary }]}>{event.type.toUpperCase()}</Text>
+              <Text style={styles.eventTitle}>{event.title}</Text>
+              <Text style={styles.eventMeta}>
+                {event.people.length ? event.people.join(", ") : "Unknown"} · {fmtTime(event.evidence?.[0]?.startMs ?? 0)}
+              </Text>
+            </View>
+          ))}
+        </>
+      ) : (
+        <>
+          <ScreenSection>Transcript</ScreenSection>
+          {segments.map((seg) => (
+            <View key={seg.id} style={styles.segRow}>
+              <Text style={styles.segTime}>{fmtTime(seg.startMs)}</Text>
+              <Text style={styles.segText}>{seg.text}</Text>
+              <Text style={styles.segSpeaker}>{seg.speakerName ?? seg.anonymousSpeakerId ?? "Unknown"}</Text>
+            </View>
+          ))}
+        </>
+      )}
 
-      {tab === "events" ? (
-        <View style={styles.list}>
-          {events.map((event, index) => <EventCard key={event.id} event={event} eventId={`EVT-${String(index + 1).padStart(3, "0")}`} />)}
-        </View>
-      ) : null}
+      <TouchableOpacity onPress={() => router.push("/ask")} accessibilityRole="button" accessibilityLabel="Ask this conversation" style={styles.cta}>
+        <Text style={styles.ctaText}>Ask this conversation</Text>
+      </TouchableOpacity>
     </ScrollView>
   );
 }
 
-function Meta({ value, label }: { value: number; label: string }) {
-  const t = useThemeTokens();
-  return <View><Text style={[styles.metaValue, { color: t.textPrimary, fontFamily: fonts.display }]}>{value}</Text><Text style={[styles.metaLabel, { color: t.textMuted, fontFamily: fonts.regular }]}>{label}</Text></View>;
-}
-
-function EventCard({ event, eventId, compact = false }: { event: CanonicalEvent; eventId?: string; compact?: boolean }) {
-  const t = useThemeTokens();
-  return (
-    <View style={[styles.eventCard, { backgroundColor: t.surface, borderColor: t.borderSubtle }]}>
-      <View style={styles.eventTop}>
-        <View style={[styles.eventIcon, { backgroundColor: typeSurface(event.type, t) }]}><AppIcon name={typeIcons[event.type] ?? "fileText"} size="inline" color={typeColor(event.type, t)} /></View>
-        <View style={{ flex: 1 }}>
-          <Text style={[styles.eventType, { color: typeColor(event.type, t), fontFamily: fonts.bold }]}>{event.type.toUpperCase()}</Text>
-          <Text style={[styles.eventTitle, { color: t.textPrimary, fontFamily: fonts.semibold }]}>{event.title}</Text>
-        </View>
-        {eventId ? <Text style={[styles.eventId, { color: t.textMuted, fontFamily: fonts.regular }]}>{eventId}</Text> : null}
-      </View>
-      <Text style={[styles.eventBody, { color: t.textMuted, fontFamily: fonts.regular }]}>{event.objectText}</Text>
-      {!compact ? (
-        <View style={[styles.evidence, { backgroundColor: t.surfaceSubtle }]}>
-          <Text style={[styles.evidenceLabel, { color: t.accent, fontFamily: fonts.bold }]}>EVIDENCE · {formatTime(event.evidence[0]?.startMs ?? 0)}</Text>
-          <Text style={[styles.evidenceText, { color: t.textPrimary, fontFamily: fonts.regular }]}>“{event.evidence[0]?.quotedText}”</Text>
-          <View style={styles.verified}><AppIcon name="check" size={12} color={t.success} /><Text style={[styles.verifiedText, { color: t.success, fontFamily: fonts.bold }]}>VERIFIED · {Math.round(event.confidence.aggregate * 100)}%</Text></View>
-        </View>
-      ) : null}
-    </View>
-  );
-}
-
-function humanSpeaker(value?: string) { return value ? value.replace("speaker_", "Speaker ") : "Identity unresolved"; }
-function formatTime(ms: number) { return `${String(Math.floor(ms / 60000)).padStart(2, "0")}:${String(Math.floor((ms % 60000) / 1000)).padStart(2, "0")}`; }
-function speakerColor(id?: string) { return ["#5B3DF5", "#1B6E9A", "#1F7A6D", "#945600"][Math.max(0, Number(id?.split("_")[1] ?? 1) - 1) % 4]; }
-function typeColor(type: EventType, t: any) { return type === "decision" ? t.decision : type === "action" ? t.action : type === "commitment" ? t.commitment : type === "issue" || type === "risk" ? t.issue : t.accent; }
-function typeSurface(type: EventType, t: any) { return type === "decision" ? t.decisionSurface : type === "action" ? t.actionSurface : type === "commitment" ? t.commitmentSurface : type === "issue" || type === "risk" ? t.issueSurface : t.surfaceSubtle; }
-
 const styles = StyleSheet.create({
-  content: { width: "100%", alignSelf: "center", padding: spacing.lg, paddingTop: 42, paddingBottom: 80 },
-  back: { flexDirection: "row", alignItems: "center", gap: 6, alignSelf: "flex-start", borderWidth: StyleSheet.hairlineWidth, borderRadius: radii.pill, minHeight: 40, paddingHorizontal: 12, marginBottom: spacing.lg },
-  backText: { fontSize: 12 },
-  kicker: { fontSize: 10, letterSpacing: letterSpacing.kicker },
-  title: { fontSize: 34, letterSpacing: -1, marginTop: 5 },
-  date: { fontSize: 13, marginTop: 3 },
-  metaRow: { flexDirection: "row", gap: spacing.xl, marginTop: spacing.lg },
-  metaValue: { fontSize: 22 },
-  metaLabel: { fontSize: 11 },
-  tabs: { flexDirection: "row", borderWidth: StyleSheet.hairlineWidth, borderRadius: radii.lg, padding: 4, marginTop: spacing.lg, marginBottom: spacing.md },
-  tab: { flex: 1, minHeight: 40, alignItems: "center", justifyContent: "center", borderRadius: radii.md },
-  tabLabel: { fontSize: 10, letterSpacing: 0.7 },
-  list: { gap: spacing.xs },
-  transcriptCard: { borderWidth: StyleSheet.hairlineWidth, borderRadius: radii.lg, padding: spacing.md },
-  transcriptTop: { flexDirection: "row", alignItems: "center", gap: 7 },
-  speakerDot: { width: 8, height: 8, borderRadius: 4 },
-  segmentSpeaker: { fontSize: 12, textTransform: "capitalize" },
-  segmentTime: { fontSize: 11, marginLeft: "auto" },
-  segmentText: { fontSize: 14, lineHeight: 21, marginTop: spacing.xs },
-  eventCard: { borderWidth: StyleSheet.hairlineWidth, borderRadius: radii.lg, padding: spacing.md },
-  eventTop: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
-  eventIcon: { width: 38, height: 38, borderRadius: radii.md, alignItems: "center", justifyContent: "center" },
-  eventType: { fontSize: 9, letterSpacing: 0.9 },
-  eventTitle: { fontSize: 15, marginTop: 2 },
-  eventId: { fontSize: 10 },
-  eventBody: { fontSize: 13, lineHeight: 19, marginTop: spacing.sm },
-  evidence: { borderRadius: radii.md, padding: spacing.sm, marginTop: spacing.sm },
-  evidenceLabel: { fontSize: 9, letterSpacing: 0.8 },
-  evidenceText: { fontSize: 12, lineHeight: 18, marginTop: 5 },
-  verified: { flexDirection: "row", alignItems: "center", gap: 5, marginTop: 7 },
-  verifiedText: { fontSize: 9, letterSpacing: 0.6 },
+  page: { flex: 1, backgroundColor: tokens.colors.bg },
+  content: { paddingHorizontal: tokens.spacing.lg, paddingTop: tokens.spacing.xl, paddingBottom: 64, maxWidth: 640, width: "100%", alignSelf: "center" },
+  header: { flexDirection: "row", alignItems: "center", gap: tokens.spacing.sm, marginBottom: tokens.spacing.lg },
+  back: { paddingVertical: tokens.spacing.xs, paddingRight: tokens.spacing.xs },
+  backText: { fontSize: 28, color: tokens.colors.textPrimary, fontWeight: "400" },
+  wordmark: { fontSize: 22, fontWeight: "700", color: tokens.colors.textPrimary },
+  mark: { color: tokens.colors.accent, fontWeight: "700" },
+  title: { fontSize: 34, fontWeight: "600", color: tokens.colors.textPrimary, letterSpacing: -0.5 },
+  subtitle: { fontSize: 16, color: tokens.colors.textSecondary, marginTop: tokens.spacing.xs },
+  tabs: { flexDirection: "row", gap: tokens.spacing.lg, marginTop: tokens.spacing.lg, borderBottomWidth: 1, borderBottomColor: tokens.colors.border },
+  tab: { paddingVertical: tokens.spacing.sm, borderBottomWidth: 2, borderBottomColor: "transparent" },
+  tabActive: { borderBottomColor: tokens.colors.accent },
+  tabText: { fontSize: 16, color: tokens.colors.textSecondary, fontWeight: "500" },
+  countRow: { flexDirection: "row", alignItems: "center", gap: tokens.spacing.sm, paddingVertical: tokens.spacing.sm },
+  countValue: { fontSize: 20, fontWeight: "600" },
+  countLabel: { fontSize: 14, color: tokens.colors.textSecondary },
+  eventRow: { paddingVertical: tokens.spacing.md, borderBottomWidth: 1, borderBottomColor: tokens.colors.border },
+  eventType: { fontSize: 11, fontWeight: "600", letterSpacing: 0.06 },
+  eventTitle: { fontSize: 16, color: tokens.colors.textPrimary, fontWeight: "500", marginTop: 2 },
+  eventMeta: { fontSize: 13, color: tokens.colors.textSecondary, marginTop: 2 },
+  segRow: { paddingVertical: tokens.spacing.sm, borderBottomWidth: 1, borderBottomColor: tokens.colors.border },
+  segTime: { fontSize: 13, color: tokens.colors.textMuted, marginBottom: 2 },
+  segText: { fontSize: 15, color: tokens.colors.textPrimary, lineHeight: 21 },
+  segSpeaker: { fontSize: 12, color: tokens.colors.textSecondary, marginTop: 2 },
+  cta: { marginTop: tokens.spacing.xl, borderRadius: tokens.radii.primaryButton, backgroundColor: tokens.colors.accent, minHeight: 54, alignItems: "center", justifyContent: "center" },
+  ctaText: { color: "#FFFFFF", fontSize: 16, fontWeight: "600" },
 });
