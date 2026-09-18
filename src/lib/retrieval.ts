@@ -60,7 +60,91 @@ export class LexicalRetrievalEngine {
   }
 }
 
+import { Bm25Engine } from "@/domain/rag/bm25";
+import { generateDenseEmbedding, rankDenseDocuments } from "@/domain/rag/denseEmbedding";
+import { reciprocalRankFusion } from "@/domain/rag/rrf";
+import { maximalMarginalRelevance } from "@/domain/rag/mmr";
+
+/**
+ * Hybrid RAG Retrieval Engine (Phase 4)
+ * Combines BM25 lexical ranking, dense vector semantics,
+ * Reciprocal Rank Fusion (RRF), and Maximal Marginal Relevance (MMR) re-ranking.
+ */
+export class HybridRagRetrievalEngine {
+  private bm25: Bm25Engine;
+
+  constructor(private readonly repository: MemoryRepository) {
+    this.bm25 = new Bm25Engine();
+  }
+
+  public search(query: string, limit = 4): MemorySearchHit[] {
+    const allMemories = this.repository.list();
+    if (!allMemories.length || !query.trim()) return [];
+
+    const docs = allMemories.map((m) => ({ id: m.id, text: searchableText(m) }));
+    this.bm25.index(docs);
+
+    // 1. BM25 Lexical Ranking
+    const bm25Results = this.bm25.score(query, allMemories.length);
+
+    // 2. Dense Semantic Vector Ranking
+    const queryEmbedding = generateDenseEmbedding(query);
+    const denseDocs = docs.map((d) => ({ id: d.id, text: d.text, embedding: generateDenseEmbedding(d.text) }));
+    const denseResults = rankDenseDocuments(queryEmbedding, denseDocs, allMemories.length);
+
+    // 3. Reciprocal Rank Fusion (RRF)
+    const fused = reciprocalRankFusion([
+      bm25Results.map((r) => ({ id: r.id })),
+      denseResults.map((r) => ({ id: r.id })),
+    ], 60);
+
+    // 4. Maximal Marginal Relevance (MMR)
+    const mmrCandidates = fused.map((f) => {
+      const dense = denseResults.find((d) => d.id === f.id);
+      const docObj = denseDocs.find((d) => d.id === f.id);
+      return {
+        id: f.id,
+        embedding: docObj ? docObj.embedding! : queryEmbedding,
+        querySimilarity: dense ? dense.similarity : 0.5,
+      };
+    });
+
+    const selected = maximalMarginalRelevance(mmrCandidates, limit, 0.7);
+
+    const hitMap = new Map(allMemories.map((m) => [m.id, m]));
+    return selected
+      .map((s) => {
+        const memory = hitMap.get(s.id);
+        if (!memory) return null;
+        return { memory, score: s.mmrScore };
+      })
+      .filter(Boolean) as MemorySearchHit[];
+  }
+
+  public answer(query: string, limit = 4): MemoryAnswer {
+    const hits = this.search(query, limit);
+    if (!hits.length) {
+      return {
+        answer: "I couldn't find enough evidence in local memory to answer that.",
+        answerMode: "deterministic",
+        confidence: "insufficient",
+        hits: [],
+        conflicts: [],
+      };
+    }
+
+    return {
+      answer: hits[0].memory.content,
+      answerMode: "deterministic",
+      confidence: hits[0].score >= 0.25 ? "high" : "medium",
+      hits,
+      conflicts: [],
+    };
+  }
+}
+
 export const retrievalEngine = new LexicalRetrievalEngine(memoryRepository);
+export const hybridRagEngine = new HybridRagRetrievalEngine(memoryRepository);
 
 export function searchMemories(query: string, limit = 4): MemoryView[] {
   return retrievalEngine.search(query, limit).map((hit) => hit.memory);
@@ -69,4 +153,5 @@ export function searchMemories(query: string, limit = 4): MemoryView[] {
 export function answerFromMemories(query: string): MemoryAnswer {
   return retrievalEngine.answer(query);
 }
+
 

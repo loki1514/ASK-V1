@@ -1,8 +1,9 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Animated, Easing, StyleSheet, View } from "react-native";
+import { Animated, Easing, StyleSheet, View, Platform } from "react-native";
 import { Text } from "react-native-paper";
 import { fonts, motion, radii, spacing } from "@/theme/tokens";
 import { useThemeTokens } from "@/lib/useThemeTokens";
+import { ThinkingOrb, orbStateFor } from "@/components/ThinkingOrb";
 
 export type ProcessingState =
   | "idle"
@@ -45,11 +46,16 @@ export function ProcessingStateMachine({ currentState, speakerCount, draftCount 
   }, [meta.progress, progress, reduceMotion]);
 
   const barWidth = progress.interpolate({ inputRange: [0, 1], outputRange: ["0%", "100%"] });
+  const orbState = currentState === "idle" ? null : orbStateFor(currentState);
 
   return (
     <View style={[styles.wrap, { backgroundColor: t.surface, borderColor: t.borderSubtle }]} accessible accessibilityLabel={`Processing: ${meta.label}`}>
       <View style={styles.row}>
-        <View style={[styles.dot, { backgroundColor: currentState === "remembered" ? t.success : t.accent }]} />
+        {orbState ? (
+          <ThinkingOrb state={orbState} size={64} dark={currentState !== "remembered"} />
+        ) : (
+          <View style={[styles.dot, { backgroundColor: t.accent }]} />
+        )}
         <View style={styles.copy}>
           <Text style={[styles.label, { color: t.textPrimary, fontFamily: fonts.medium }]}>{meta.label}</Text>
           <Text style={[styles.detail, { color: t.textMuted, fontFamily: fonts.regular }]}>

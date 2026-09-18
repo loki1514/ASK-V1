@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Animated, Pressable, ScrollView, StyleSheet, TextInput, View, useWindowDimensions, Alert } from "react-native";
+import { Animated, Pressable, ScrollView, StyleSheet, TextInput, TouchableOpacity, View, useWindowDimensions, Alert } from "react-native";
 import { Text } from "react-native-paper";
 import { router } from "expo-router";
 import { cleanTranscript } from "@/data/transcripts/cleanTranscript";
@@ -10,6 +10,7 @@ import { liveEventRepository } from "@/data/liveMemory";
 import { conversationStore } from "@/data/conversationStore";
 import { ProcessingStateMachine, ProcessingState } from "@/components/ProcessingStateMachine";
 import { EventCard } from "@/components/EventCard";
+import { MeetingInsights } from "@/components/MeetingInsights";
 import { AppIcon } from "@/components/AppIcon";
 import { fonts, radii, spacing, motion } from "@/theme/tokens";
 import { useThemeTokens } from "@/lib/useThemeTokens";
@@ -80,22 +81,22 @@ export default function Home() {
             Paste a transcript or load a demo to see ASK turn conversation into structured memory.
           </Text>
           <View style={styles.selectorButtons}>
-            <Pressable onPress={() => loadTranscript(cleanTranscript, "clean")} style={[styles.selectorBtn, { backgroundColor: t.accent }]}>
+            <TouchableOpacity onPress={() => loadTranscript(cleanTranscript, "clean")} style={[styles.selectorBtn, { backgroundColor: t.accent }]} accessibilityRole="button" accessibilityLabel="Load clean demo transcript">
               <AppIcon name="sparkles" size="inline" color="#FFFFFF" />
               <Text style={[styles.selectorBtnText, { fontFamily: fonts.medium }]}>Clean demo</Text>
-            </Pressable>
-            <Pressable onPress={() => loadTranscript(dirtyTranscript, "dirty")} style={[styles.selectorBtn, { backgroundColor: t.warning }]}>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => loadTranscript(dirtyTranscript, "dirty")} style={[styles.selectorBtn, { backgroundColor: t.warning }]} accessibilityRole="button" accessibilityLabel="Load dirty demo transcript">
               <AppIcon name="zap" size="inline" color="#FFFFFF" />
               <Text style={[styles.selectorBtnText, { fontFamily: fonts.medium }]}>Dirty demo</Text>
-            </Pressable>
-            <Pressable onPress={() => loadTranscript(messyCallTranscript, "dirty")} style={[styles.selectorBtn, { backgroundColor: t.danger }]}>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => loadTranscript(messyCallTranscript, "dirty")} style={[styles.selectorBtn, { backgroundColor: t.danger }]} accessibilityRole="button" accessibilityLabel="Load real call transcript">
               <AppIcon name="waves" size="inline" color="#FFFFFF" />
               <Text style={[styles.selectorBtnText, { fontFamily: fonts.medium }]}>Real call</Text>
-            </Pressable>
-            <Pressable onPress={() => setShowPaste(true)} style={[styles.selectorBtn, { backgroundColor: t.textMuted }]}>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setShowPaste(true)} style={[styles.selectorBtn, { backgroundColor: t.textMuted }]} accessibilityRole="button" accessibilityLabel="Paste a transcript">
               <AppIcon name="fileText" size="inline" color="#FFFFFF" />
               <Text style={[styles.selectorBtnText, { fontFamily: fonts.medium }]}>Paste</Text>
-            </Pressable>
+            </TouchableOpacity>
           </View>
           {showPaste ? (
             <View style={styles.pasteArea}>
@@ -156,6 +157,10 @@ export default function Home() {
               </View>
             ) : null}
           </View>
+
+          {/* Meeting assistant dashboard (Dribbble ref): transcript + key moments */}
+          <Text style={[styles.sectionTitle, { color: t.textPrimary, fontFamily: fonts.bold }]}>Meeting view</Text>
+          <MeetingInsights conversation={result} />
 
           {/* Top priorities */}
           {result.summary.topPriorities.length ? (
