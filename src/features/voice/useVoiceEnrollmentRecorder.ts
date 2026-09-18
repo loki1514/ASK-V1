@@ -136,14 +136,14 @@ export function useVoiceEnrollmentRecorder() {
   }, [isStreaming, state.isRecording, stream]);
 
   const reset = useCallback(() => {
-    if (isStreaming) stream.stop();
+    if (isStreaming && stream) stream.stop();
     chunks.current = [];
     totalSamples.current = 0;
     setState({ isRecording: false, durationMs: 0, level: 0, peak: 0 });
   }, [isStreaming, stream]);
 
   useEffect(() => () => {
-    if (stream.isStreaming) stream.stop();
+    if (stream?.isStreaming) stream.stop();
     chunks.current = [];
     totalSamples.current = 0;
   }, [stream]);

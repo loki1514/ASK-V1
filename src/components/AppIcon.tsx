@@ -50,7 +50,7 @@ import {
   Waves,
   Zap,
 } from "lucide-react-native";
-import { icon, themes } from "@/theme/tokens";
+import { icon, colors, themes } from "@/theme/tokens";
 import { ThemeContext } from "@/lib/themeContext";
 
 export type IconName =
@@ -168,9 +168,7 @@ export function AppIcon({ name, size = "inline", color, strokeWidth = icon.strok
   const px = typeof size === "number" ? size : icon.sizes[size];
   const Glyph = iconMap[name];
   const label = accessibilityLabel ?? (name === "loader" ? "Loading" : undefined);
-  const { mode } = React.useContext(ThemeContext);
-  const t = themes[mode];
-  const ink = color ?? (mode === "dark" ? t.textMuted : t.textMuted);
+  const ink = color ?? colors.textMuted;
   return (
     <View style={style} accessible={accessible} accessibilityLabel={label} accessibilityRole={accessible ? "image" : undefined}>
       <Glyph size={px} color={ink} strokeWidth={strokeWidth} />
