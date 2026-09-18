@@ -28,7 +28,7 @@ export default function Home() {
 
       {/* Greeting + understood metric */}
       <Text style={styles.title}>Good afternoon.</Text>
-      <TouchableOpacity onPress={() => router.push("/activity")} accessibilityRole="button" accessibilityLabel="Understanding history" style={styles.understoodRow}>
+      <TouchableOpacity onPress={() => router.push("/understand")} accessibilityRole="button" accessibilityLabel="Understanding history" style={styles.understoodRow}>
         <Text style={styles.understood}>{metrics.understoodToday} min</Text>
         <Text style={styles.understoodLabel}>understood today</Text>
         <View style={styles.understoodChevron}><AppIcon name="arrowRight" size={16} color={tokens.colors.textMuted} /></View>
@@ -91,11 +91,17 @@ export default function Home() {
               <AppIcon name="arrowRight" size={16} color={tokens.colors.textMuted} />
             </TouchableOpacity>
           ))}
+          <TouchableOpacity onPress={() => router.push("/understand")} accessibilityRole="button" accessibilityLabel="Understand a conversation" style={styles.cta}>
+            <Text style={styles.ctaText}>Understand a conversation</Text>
+          </TouchableOpacity>
         </>
       ) : (
         <View style={styles.emptyState}>
           <Text style={styles.emptyTitle}>No conversations yet</Text>
           <Text style={styles.emptyBody}>Understand a conversation and it shows up here. Nothing is lost while the device is out of range.</Text>
+          <TouchableOpacity onPress={() => router.push("/understand")} accessibilityRole="button" accessibilityLabel="Understand a conversation" style={styles.cta}>
+            <Text style={styles.ctaText}>Understand a conversation</Text>
+          </TouchableOpacity>
         </View>
       )}
     </ScrollView>
@@ -125,4 +131,15 @@ const styles = StyleSheet.create({
   emptyState: { marginTop: tokens.spacing.xl, alignItems: "center", paddingVertical: tokens.spacing.xl },
   emptyTitle: { fontSize: 16, color: tokens.colors.textPrimary, fontWeight: "600" },
   emptyBody: { fontSize: 14, color: tokens.colors.textSecondary, textAlign: "center", maxWidth: 300, lineHeight: 20, marginTop: tokens.spacing.xs },
+  cta: {
+    marginTop: tokens.spacing.xl,
+    borderRadius: tokens.radii.primaryButton,
+    backgroundColor: tokens.colors.accent,
+    minHeight: 54,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: tokens.spacing.lg,
+    alignSelf: "center",
+  },
+  ctaText: { color: "#FFFFFF", fontSize: 16, fontWeight: "600" },
 });
