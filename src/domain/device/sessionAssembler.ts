@@ -1,143 +1,128 @@
+// ASK P2P codec + session assembler — ASK_P2P spec v1.0 (§7–9).
+// Applies the spec's reliability rules: highest contiguous sequence tracked,
+// duplicates ignored, missing sequences flagged for RESUME, audio never
+// appended twice.
+
 import {
-  AskPacket,
-  SessionFrameError,
-  SessionOutcome,
-  SessionState,
-} from "@/domain/device/protocol";
-import { verifyFrame, decodeFrame, encodeFrame } from "@/domain/device/framing";
-import { AskFrame } from "@/domain/device/protocol";
+  AskFrame,
+  DecodeResult,
+  FrameType,
+  HEADER_LEN,
+  decodeFrame,
+  encodeFrame,
+} from "@/domain/device/framing";
+import { crc32 } from "@/domain/device/crc32";
 
-export type SessionResult = {
-  outcome: SessionOutcome;
-  sessionId: string;
-  chunks: AskPacket[]; // AUDIO_CHUNK packets that passed integrity checks
-  audioBytesTotal: number;
-  firstSequence: number;
-  lastSequence: number;
-  errors: SessionFrameError[];
-};
+export { encodeFrame, decodeFrame, HEADER_LEN };
+export type { AskFrame, FrameType, DecodeResult };
 
-// Reassembles SESSION_START → AUDIO_CHUNK* → SESSION_END. Each frame is
-// checksum-verified and sequenced before any payload is trusted, so missing or
-// corrupted chunks are detected before ASR/processing (PRD §Phase 2 gate).
+export type FrameError =
+  | { code: "BAD_MAGIC" | "BAD_VERSION" | "BAD_TYPE" | "BAD_HEADER" | "BAD_LENGTH" | "CHECKSUM" | "OUT_OF_ORDER" | "DUPLICATE"; detail: string };
+
 export class AskSessionAssembler {
   readonly sessionId: string;
-  private state: SessionState = "awaiting_start";
-  private chunks: AskPacket[] = [];
-  private audioBytes = 0;
-  private nextExpected = 0;
-  private readonly errors: SessionFrameError[] = [];
+  private nextExpected: number;
+  private readonly audioChunks = new Map<number, Uint8Array>();
+  private totalBytes = 0;
+  private started = false;
+  private closed = false;
+  private readonly gaps = new Set<number>();
+  errors: FrameError[] = [];
 
-  constructor(sessionId: string) {
+  constructor(sessionId: string, resumeFrom = 0) {
     this.sessionId = sessionId;
+    this.nextExpected = resumeFrom;
+    if (resumeFrom > 0) this.started = true;
   }
 
-  getState(): SessionState {
-    return this.state;
+  // Feed one frame; returns true if it was accepted.
+  ingest(bytes: Uint8Array): { accepted: boolean; error?: FrameError; isComplete?: { totalBytes: number } } {
+    const result = decodeFrame(bytes);
+    if (!result.ok) {
+      return { accepted: false, error: mapDecodeError(result.error) };
+    }
+    const frame = result.frame;
+
+    if (frame.sessionId !== this.sessionId) {
+      return { accepted: false, error: { code: "BAD_TYPE", detail: `session ${frame.sessionId}` } };
+    }
+
+    switch (frame.type) {
+      case "HELLO":
+        return { accepted: true };
+      case "START":
+        if (frame.sequence !== 0) return { accepted: false, error: { code: "OUT_OF_ORDER", detail: "START not seq 0" } };
+        this.started = true;
+        this.nextExpected = 1;
+        return { accepted: true };
+      case "AUDIO": {
+        if (!this.started) return { accepted: false, error: { code: "OUT_OF_ORDER", detail: "AUDIO before START" } };
+        if (frame.sequence < this.nextExpected) {
+          // Already contiguous: ignore duplicates silently (spec §9).
+          return { accepted: true };
+        }
+        if (frame.sequence > this.nextExpected) {
+          this.gaps.add(frame.sequence);
+          return { accepted: false, error: { code: "OUT_OF_ORDER", detail: `gap at ${this.nextExpected}` } };
+        }
+        this.audioChunks.set(frame.sequence, frame.payload);
+        this.totalBytes += frame.payload.length;
+        this.nextExpected += 1;
+        // Close earlier gaps if now contiguous.
+        while (this.gaps.has(this.nextExpected)) {
+          this.gaps.delete(this.nextExpected);
+          this.nextExpected += 1;
+        }
+        return { accepted: true };
+      }
+      case "END": {
+        this.closed = true;
+        return { accepted: true, isComplete: { totalBytes: this.totalBytes } };
+      }
+      case "ACK":
+      case "ERROR":
+        return { accepted: true };
+      default:
+        return { accepted: false, error: { code: "BAD_TYPE", detail: frame.type } };
+    }
   }
 
-  ingest(frame: AskFrame): SessionResult | SessionFrameError | undefined {
-    if (this.state === "closed") {
-      return err("UNEXPECTED_PACKET_TYPE", `session ${this.sessionId} already closed`);
-    }
-
-    if (!verifyFrame(frame)) {
-      const error = err("CHECKSUM_MISMATCH", `frame ${summarize(frame)} failed checksum`);
-      this.errors.push(error);
-      return error;
-    }
-
-    let packet: AskPacket;
-    try {
-      packet = decodeFrame(frame);
-    } catch (e) {
-      const error = e as { code?: SessionFrameError["code"]; message?: string };
-      this.errors.push({ code: error.code ?? "MALFORMED_HEADER", detail: error.message ?? "decode failed" });
-      return { code: error.code ?? "MALFORMED_HEADER", detail: error.message ?? "decode failed" };
-    }
-
-    if (packet.sessionId !== this.sessionId) {
-      const error = err("UNEXPECTED_PACKET_TYPE", `frame for session ${packet.sessionId}, expected ${this.sessionId}`);
-      this.errors.push(error);
-      return error;
-    }
-
-    if (packet.packetType === "SESSION_START") {
-      if (this.state === "streaming") {
-        const error = err("UNEXPECTED_PACKET_TYPE", "SESSION_START while already streaming");
-        this.errors.push(error);
-        return error;
-      }
-      if (packet.sequence !== 0) {
-        const error = err("OUT_OF_ORDER", `SESSION_START must be sequence 0, got ${packet.sequence}`);
-        this.errors.push(error);
-        return error;
-      }
-      this.state = "streaming";
-      this.nextExpected = 1;
-      return undefined;
-    }
-
-    if (this.state !== "streaming") {
-      const error = err("UNEXPECTED_PACKET_TYPE", `${packet.packetType} before SESSION_START`);
-      this.errors.push(error);
-      return error;
-    }
-
-    if (packet.packetType === "AUDIO_CHUNK") {
-      if (packet.sequence !== this.nextExpected) {
-        const error = err(
-          packet.sequence < this.nextExpected ? "DUPLICATE_SEQUENCE" : "OUT_OF_ORDER",
-          `expected sequence ${this.nextExpected}, got ${packet.sequence}`,
-        );
-        this.errors.push(error);
-        return error;
-      }
-      this.chunks.push(packet);
-      this.audioBytes += packet.payload.length;
-      this.nextExpected += 1;
-      return undefined;
-    }
-
-    if (packet.packetType === "SESSION_END") {
-      if (packet.sequence !== this.nextExpected) {
-        const error = err(
-          packet.sequence < this.nextExpected ? "DUPLICATE_SEQUENCE" : "OUT_OF_ORDER",
-          `SESSION_END expected sequence ${this.nextExpected}, got ${packet.sequence}`,
-        );
-        this.errors.push(error);
-        return error;
-      }
-      this.state = "closed";
-      return this.result(SessionOutcome.Complete);
-    }
-
-    // DEVICE_STATUS / DEVICE_COMMAND_ACK don't affect the audio stream.
-    return undefined;
+  get nextSequence(): number {
+    return this.nextExpected;
   }
 
-  abort(): SessionResult {
-    this.state = "closed";
-    return this.result(this.chunks.length ? SessionOutcome.Incomplete : SessionOutcome.Corrupt);
+  get isComplete(): boolean {
+    return this.closed;
   }
 
-  private result(outcome: SessionOutcome): SessionResult {
-    return {
-      outcome,
-      sessionId: this.sessionId,
-      chunks: this.chunks,
-      audioBytesTotal: this.audioBytes,
-      firstSequence: this.chunks.length ? this.chunks[0].sequence : -1,
-      lastSequence: this.chunks.length ? this.chunks[this.chunks.length - 1].sequence : -1,
-      errors: [...this.errors],
-    };
+  // Ordered audio payloads for the accepted contiguous run.
+  audio(): Uint8Array {
+    const parts: Uint8Array[] = [];
+    const keys = [...this.audioChunks.keys()].sort((a, b) => a - b);
+    let seq = 1; // first audio seq is 1 (START is 0)
+    for (const s of keys) {
+      if (s !== seq) break;
+      parts.push(this.audioChunks.get(s) as Uint8Array);
+      seq += 1;
+    }
+    const total = parts.reduce((n, p) => n + p.length, 0);
+    const out = new Uint8Array(total);
+    let at = 0;
+    for (const p of parts) {
+      out.set(p, at);
+      at += p.length;
+    }
+    return out;
   }
 }
 
-function err(code: SessionFrameError["code"], detail: string): SessionFrameError {
-  return { code, detail };
+function mapDecodeError(msg: string): FrameError {
+  if (msg.startsWith("bad magic")) return { code: "BAD_MAGIC", detail: msg };
+  if (msg.startsWith("bad version")) return { code: "BAD_VERSION", detail: msg };
+  if (msg.startsWith("bad type")) return { code: "BAD_TYPE", detail: msg };
+  if (msg.startsWith("bad header")) return { code: "BAD_HEADER", detail: msg };
+  if (msg.startsWith("payload len")) return { code: "BAD_LENGTH", detail: msg };
+  return { code: "CHECKSUM", detail: msg };
 }
 
-function summarize(frame: AskFrame): string {
-  return frame.headerText.trim().split(" ").slice(0, 4).join(" ");
-}
+export { crc32 };

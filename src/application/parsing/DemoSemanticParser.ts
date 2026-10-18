@@ -137,17 +137,38 @@ const rules: Rule[] = [
     actor: "Speaker A",
     confidence: 0.92,
   },
+  // --- Fallback: any spoken sentence becomes a note so recorded demos always
+  // produce at least one memory, even when the exact wording misses the rules.
+  {
+    match: /.{10,}/,
+    type: "note",
+    fn: "CREATE_NOTE",
+    title: "Recorded note",
+    objectText: "Speaker noted: \"{text}\".",
+    confidence: 0.72,
+  },
 ];
 
+function hashInput(input: string): string {
+  let h = 0;
+  for (let i = 0; i < input.length; i += 1) {
+    const c = input.charCodeAt(i);
+    h = ((h << 5) - h + c) | 0;
+  }
+  return Math.abs(h).toString(36);
+}
+
 function draftFrom(segment: TranscriptSegment, rule: Rule, index: number): SemanticEventDraft {
+  const objectText = rule.objectText.replace(/{text}/g, segment.text);
+  const title = rule.title === "Recorded note" ? `${rule.title} #${hashInput(segment.text)}` : rule.title;
   return {
     id: `${segment.conversationId}_draft_${String(index + 1).padStart(2, "0")}`,
     conversationId: segment.conversationId,
     proposedType: rule.type,
     proposedFunction: rule.fn,
     fields: {
-      title: rule.title,
-      objectText: rule.objectText,
+      title,
+      objectText,
       actor: rule.actor,
       people: rule.actor ? [rule.actor] : [],
       project: "Bangalore Project",
@@ -165,7 +186,7 @@ function draftFrom(segment: TranscriptSegment, rule: Rule, index: number): Seman
     }],
     parserModelVersion: "demo-semantic-parser/1.0.0",
     warnings: [],
-    idempotencyKey: `bangalore:${rule.fn.toLowerCase()}:${rule.title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
+    idempotencyKey: `bangalore:${rule.fn.toLowerCase()}:${title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
   };
 }
 

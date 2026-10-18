@@ -45,7 +45,8 @@ export function VoiceStateOrb({ state, level = 0 }: { state: VoiceOrbState; leve
     return () => subscription.remove();
   }, []);
 
-  // Ambient breathing rings: the heartbeat of the product, idle only.
+  // A subtle scale shift keeps the control alive without adding decorative
+  // concentric rings around the primary microphone affordance.
   useEffect(() => {
     if (reduceMotion) return;
     const loop = Animated.loop(
@@ -102,16 +103,7 @@ export function VoiceStateOrb({ state, level = 0 }: { state: VoiceOrbState; leve
       accessibilityRole="image"
       accessibilityLabel={`${meta.label}${state === "listening" ? `, audio level ${Math.round(level * 100)} percent` : ""}`}
     >
-      <Animated.View style={[s.halo, { opacity: halo, transform: [{ scale }] }]} />
-      <Animated.View
-        style={[
-          s.ringOuter,
-          {
-            transform: [{ scale: pulse.interpolate({ inputRange: [1, 1.05], outputRange: [1, 1.12] }) }],
-            opacity: pulse.interpolate({ inputRange: [1, 1.05], outputRange: [0.55, 0.85] }),
-          },
-        ]}
-      />
+      <Animated.View style={[s.halo, { opacity: halo, transform: [{ scale: pulse }] }]} />
       <Animated.View
         pointerEvents="none"
         style={[
@@ -122,8 +114,8 @@ export function VoiceStateOrb({ state, level = 0 }: { state: VoiceOrbState; leve
           },
         ]}
       />
-      <Animated.View style={[s.orb, { borderColor: meta.tone, transform: [{ scale }] }]}>
-        <View style={[s.orbCore, { backgroundColor: meta.tone }]}>
+      <Animated.View style={[s.orb, { backgroundColor: meta.tone, transform: [{ scale }] }]}>
+        <View style={[s.orbCore, { backgroundColor: meta.tone }]}> 
           <AppIcon name={meta.icon} size={30} color="#17151F" />
         </View>
       </Animated.View>
@@ -136,16 +128,16 @@ export function VoiceStateOrb({ state, level = 0 }: { state: VoiceOrbState; leve
 }
 
 const s = StyleSheet.create({
-  wrap: { alignItems: "center", justifyContent: "center", minHeight: 176 },
-  halo: { position: "absolute", width: 126, height: 126, borderRadius: 63, backgroundColor: "#7457FF" },
-  ringOuter: { position: "absolute", width: 140, height: 140, borderRadius: 70, borderWidth: 1.5, borderColor: "#B8A9FF" },
+  wrap: { alignItems: "center", justifyContent: "center", minHeight: 168 },
+  // This intentionally uses a soft rounded field rather than a circle: it
+  // supports the control without reading as a second ring.
+  halo: { position: "absolute", width: 126, height: 104, borderRadius: 38, backgroundColor: "#392878" },
   acceptanceBeam: { position: "absolute", width: 112, height: 112, borderRadius: 56, borderWidth: 2, borderColor: "#72D5C9" },
   orb: {
     width: 92,
     height: 92,
     borderRadius: 46,
-    borderWidth: 1,
-    backgroundColor: "#2B2640",
+    borderWidth: 0,
     alignItems: "center",
     justifyContent: "center",
     shadowColor: "#8F78FF",
@@ -153,7 +145,7 @@ const s = StyleSheet.create({
     shadowRadius: 24,
     shadowOffset: { width: 0, height: 8 },
   },
-  orbCore: { width: 56, height: 56, borderRadius: 28, alignItems: "center", justifyContent: "center" },
+  orbCore: { width: 56, height: 56, borderRadius: 28, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(8,8,8,0.10)" },
   labelRow: { flexDirection: "row", alignItems: "center", gap: 7, marginTop: 18 },
   liveDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: "#FF776F" },
   label: { color: "#F7F5FB", letterSpacing: 0.2, fontSize: 13 },

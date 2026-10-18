@@ -63,7 +63,7 @@ export type Speaker = {
 export type ParsedConversation = {
   id: string;
   title: string;
-  source: "clean" | "dirty" | "pasted" | "file";
+  source: "clean" | "dirty" | "pasted" | "file" | "recorded";
   segments: TranscriptSegment[];
   speakers: Speaker[];
   events: SemanticEventDraft[];

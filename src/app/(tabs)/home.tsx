@@ -43,6 +43,17 @@ export default function Home() {
         ]}
       />
 
+      {/* Record live memory */}
+      <TouchableOpacity onPress={() => router.push("/record")} accessibilityRole="button" accessibilityLabel="Record a memory" style={styles.recordCard}>
+        <View style={styles.recordCopy}>
+          <Text style={styles.recordTitle}>Record a memory</Text>
+          <Text style={styles.recordMeta}>Say one sentence and ASK will remember it.</Text>
+        </View>
+        <View style={styles.recordPill}>
+          <AppIcon name="mic" size={18} color="#FFFFFF" />
+        </View>
+      </TouchableOpacity>
+
       {/* Needs you */}
       <ScreenSection>Needs you</ScreenSection>
       {mine.length ? (
@@ -142,4 +153,26 @@ const styles = StyleSheet.create({
     alignSelf: "center",
   },
   ctaText: { color: "#FFFFFF", fontSize: 16, fontWeight: "600" },
+  recordCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: tokens.spacing.lg,
+    padding: tokens.spacing.md,
+    borderRadius: tokens.radii.card,
+    borderWidth: 1,
+    borderColor: tokens.colors.border,
+    backgroundColor: tokens.colors.surfaceRaised,
+    gap: tokens.spacing.md,
+  },
+  recordCopy: { flex: 1 },
+  recordTitle: { fontSize: 16, fontWeight: "600", color: tokens.colors.textPrimary },
+  recordMeta: { fontSize: 13, color: tokens.colors.textSecondary, marginTop: 2 },
+  recordPill: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: tokens.colors.accent,
+    alignItems: "center",
+    justifyContent: "center",
+  },
 });
